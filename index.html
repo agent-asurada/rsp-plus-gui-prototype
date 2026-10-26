@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Remote SSH Plus — GUI Prototype</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <div class="shell">
+      <div class="shell-titlebar">
+        <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+        <h1>Remote SSH Plus — 可点击原型</h1>
+        <span class="badge">IDE plugin panels · design-only</span>
+      </div>
+      <nav class="nav" id="nav">
+        <button type="button" data-panel="wizard" class="active">Open Remote SSH 向导</button>
+        <button type="button" data-panel="sync">Remote Sync 工具窗</button>
+        <button type="button" data-panel="tools">Tools → Remote SSH</button>
+        <button type="button" data-panel="status">Settings / Status</button>
+      </nav>
+      <div class="main">
+
+        <!-- ========== WIZARD ========== -->
+        <section class="panel active" id="panel-wizard">
+          <div class="section-head">
+            <h2>Open Remote SSH</h2>
+            <p>DialogWrapper 三步向导 · File → Open Remote SSH…</p>
+          </div>
+          <div class="dialog" id="wizard">
+            <div class="dialog-title">
+              <span>Open Remote SSH</span>
+              <span style="color:var(--text-dim);font-weight:400;font-size:12px">Esc to cancel</span>
+            </div>
+            <div class="dialog-body">
+              <div class="step-list" id="stepList">
+                <div class="step current" data-step="0">1. Host</div>
+                <div class="step" data-step="1">2. Remote directory</div>
+                <div class="step" data-step="2">3. Local mirror</div>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+                <!-- Step 0 -->
+                <div class="card active" data-card="0">
+                  <div style="color:var(--text-dim);margin-bottom:4px">Hosts from ~/.ssh/config:</div>
+                  <div class="listbox" id="hostList" tabindex="0"></div>
+                </div>
+                <!-- Step 1 -->
+                <div class="card" data-card="1">
+                  <input class="input" id="remotePath" spellcheck="false" placeholder="/home/dev/…" />
+                  <div class="listbox" id="dirList" tabindex="0" title="双击目录进入"></div>
+                  <div class="hint">双击目录进入；选中 <code>..</code> 返回上级；路径框回车直接跳转。</div>
+                </div>
+                <!-- Step 2 -->
+                <div class="card" data-card="2">
+                  <div class="field">
+                    <label>Local directory:</label>
+                    <div class="inline-row">
+                      <input class="input" id="localPath" spellcheck="false" />
+                      <button type="button" class="btn browse-btn" id="browseLocal">Browse…</button>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label>Sync mode:</label>
+                    <select class="select" id="syncMode">
+                      <option value="TWO_WAY">双向 safe（Two-way safe）</option>
+                      <option value="REMOTE_TO_LOCAL">远程→本地（Remote → Local replica）</option>
+                      <option value="LOCAL_TO_REMOTE">本地→远程（Local → Remote replica）</option>
+                    </select>
+                  </div>
+                  <label class="checkbox">
+                    <input type="checkbox" id="remoteGit" checked />
+                    <span>Use remote git (wrapper + read-only .git mirror)</span>
+                  </label>
+                  <div class="hint">Windows 上远程 Git 不可用（会禁用此项）。完成后创建 Mutagen 会话并打开本地目录。</div>
+                </div>
+              </div>
+            </div>
+            <div class="status-line" id="wizStatus"> </div>
+            <div class="dialog-footer">
+              <div class="left">
+                <button type="button" class="btn" id="wizPrev" disabled>Previous</button>
+              </div>
+              <button type="button" class="btn" id="wizCancel">Cancel</button>
+              <button type="button" class="btn primary" id="wizNext">Next</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========== SYNC TOOL WINDOW ========== -->
+        <section class="panel" id="panel-sync">
+          <div class="section-head">
+            <h2>Remote Sync</h2>
+            <p>底部工具窗 · 可见时每 4s 刷新 · label rsp=1</p>
+          </div>
+          <div class="toolwin">
+            <div class="toolwin-tab">Remote Sync <span class="x">×</span></div>
+            <div class="toolbar" id="syncToolbar">
+              <button type="button" class="btn" data-act="refresh" title="Refresh">⟳ Refresh</button>
+              <span class="sep"></span>
+              <button type="button" class="btn" data-act="flush" title="Sync now (flush)">▶ Sync now (flush)</button>
+              <button type="button" class="btn" data-act="pause" title="Pause">⏸ Pause</button>
+              <button type="button" class="btn" data-act="resume" title="Resume">⏵ Resume</button>
+              <button type="button" class="btn" data-act="terminate" title="Terminate">✕ Terminate</button>
+            </div>
+            <div style="overflow:auto;max-height:340px">
+              <table class="grid" id="sessionTable">
+                <thead>
+                  <tr>
+                    <th>Name</th><th>Status</th><th>Paused</th><th>Conflicts</th>
+                    <th>Alpha</th><th>Beta</th><th>Error</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <p class="hint">选中一行后可 Pause / Resume / Terminate。Terminate 会弹出与真实插件一致的确认文案（保留本地文件、同时终止 git mirror）。</p>
+        </section>
+
+        <!-- ========== TOOLS MENU ========== -->
+        <section class="panel" id="panel-tools">
+          <div class="section-head">
+            <h2>Tools → Remote SSH</h2>
+            <p>仅映射项目中可见 · 点菜单项打开对应流程</p>
+          </div>
+          <div class="menu-bar" id="menuBar">
+            <div class="m">File</div>
+            <div class="m">Edit</div>
+            <div class="m">View</div>
+            <div class="m open" id="toolsMenu">
+              Tools
+              <div class="dropdown">
+                <div class="mi dim">…</div>
+                <div class="sep"></div>
+                <div class="mi" data-tool="gradle">Run Remote Gradle Task…</div>
+                <div class="mi" data-tool="adb" id="adbMenuItem">Start ADB Reverse Forward (5037 → pixel-lab)</div>
+                <div class="mi" data-tool="install">Install Pulled APK via Local adb…</div>
+                <div class="sep"></div>
+                <div class="mi" data-tool="git">Use Remote Git for This Project</div>
+                <div class="mi" data-tool="term">Open Remote Terminal</div>
+              </div>
+            </div>
+            <div class="m">Help</div>
+          </div>
+          <div class="demo-area" id="toolDemo">
+            <p class="hint" style="margin:0">从上方 <strong>Tools</strong> 菜单选择一项开始演示。</p>
+          </div>
+        </section>
+
+        <!-- ========== STATUS ========== -->
+        <section class="panel" id="panel-status">
+          <div class="section-head">
+            <h2>Settings / Status strip</h2>
+            <p>连接复用 · mutagen 忽略项 · 路线图</p>
+          </div>
+          <div class="strip">
+            <div class="card-block">
+              <h3>SSH ControlMaster</h3>
+              <p>系统 <code>ssh</code> 使用 <code>ControlMaster=auto</code> +
+                <code>ControlPath=~/.remote-ssh-plus/cm/%C</code> +
+                <code>ControlPersist=10m</code> 复用连接。ADB 反向转发单独使用
+                <code>ControlMaster=no</code>（独立连接，避免与其它会话互相拖垮）。</p>
+            </div>
+            <div class="card-block">
+              <h3>Mutagen ignore</h3>
+              <p>默认忽略（并 <code>--ignore-vcs</code>）：</p>
+              <ul>
+                <li><code>build/</code></li>
+                <li><code>.gradle/</code></li>
+                <li><code>local.properties</code></li>
+                <li><code>.idea/workspace.xml</code></li>
+              </ul>
+              <p class="hint">远程构建产生的 APK 在 build/ 内，不同步；成功后由插件 <code>ssh cat</code> 回拉到本地同一相对路径。</p>
+            </div>
+            <div class="card-block">
+              <h3>Roadmap <span class="tag">pending</span></h3>
+              <p><code>adb install --incremental</code>：在本地安装路径加入按块流式增量安装（需 v4 签名等条件）；
+                与现有 <code>--fastdeploy</code> → 全量 <code>-r</code> 回退链并存或择优。<strong>待实现。</strong></p>
+            </div>
+            <div class="card-block">
+              <h3>当前映射（示例）</h3>
+              <p><code>~/rsp-mirrors/pixel-lab_android-demo</code>
+                ↔ <code>pixel-lab:/home/dev/android-demo</code>
+                · mode: 双向 safe · remoteGit: on</p>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+    <p class="footer-note">Design-only prototype · does not modify the remote-ssh-plus repository</p>
+  </div>
+
+  <!-- Modals -->
+  <div class="overlay" id="overlay" role="dialog" aria-modal="true">
+    <div class="modal" id="modal">
+      <div class="mtitle" id="modalTitle"></div>
+      <div class="mbody" id="modalBody"></div>
+      <div class="mfoot" id="modalFoot"></div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
