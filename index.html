@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Remote SSH Plus — GUI Prototype</title>
+  <title>Remote SSH Plus — GUI Prototype v2</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -11,57 +11,100 @@
     <div class="shell">
       <div class="shell-titlebar">
         <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
-        <h1>Remote SSH Plus — 可点击原型</h1>
-        <span class="badge">IDE plugin panels · design-only</span>
+        <div class="title-stack">
+          <h1>Remote SSH Plus — 可点击原型</h1>
+          <p class="sub">IntelliJ / Android Studio 插件面板 · design-only · 不修改插件仓库</p>
+        </div>
+        <div class="badges">
+          <span class="chip accent"><span class="dot-live"></span> v2 redesign</span>
+          <span class="chip">IDE panels · not full chrome</span>
+        </div>
       </div>
+
+      <div class="mapping-strip" title="全站示例映射（一致）">
+        <span class="label">Sample map</span>
+        <span class="path">/home/shuang/rsp-mirrors/pixel-lab_android-demo</span>
+        <span class="arrow">↔</span>
+        <span class="path">pixel-lab:/home/android/android-demo</span>
+        <span class="meta">双向 safe · remoteGit on · mutagen ignore built-in</span>
+      </div>
+
       <nav class="nav" id="nav">
-        <button type="button" data-panel="wizard" class="active">Open Remote SSH 向导</button>
-        <button type="button" data-panel="sync">Remote Sync 工具窗</button>
-        <button type="button" data-panel="tools">Tools → Remote SSH</button>
-        <button type="button" data-panel="about">About / 说明</button>
+        <button type="button" data-panel="wizard" class="active">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M4 12h10M4 17h14"/><circle cx="19" cy="12" r="2" fill="currentColor" stroke="none"/></svg>
+          <span class="nav-label">Open Remote SSH</span>
+          <span class="nav-hint">三步向导</span>
+        </button>
+        <button type="button" data-panel="sync">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12a8 8 0 0 1 14.5-4.8M20 12a8 8 0 0 1-14.5 4.8"/><path d="M18 3v5h-5M6 21v-5h5"/></svg>
+          <span class="nav-label">Remote Sync</span>
+          <span class="nav-hint">工具窗</span>
+        </button>
+        <button type="button" data-panel="tools">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 4h6v6M10 20H4v-6M20 4l-7.5 7.5M4 20l7.5-7.5"/></svg>
+          <span class="nav-label">Tools → Remote SSH</span>
+          <span class="nav-hint">Gradle · ADB · APK</span>
+        </button>
+        <button type="button" data-panel="about">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 10v6M12 7.5h.01"/></svg>
+          <span class="nav-label">About / 说明</span>
+          <span class="nav-hint">只读 · built-in</span>
+        </button>
       </nav>
+
       <div class="main">
 
         <!-- ========== WIZARD ========== -->
         <section class="panel active" id="panel-wizard">
           <div class="section-head">
-            <h2>Open Remote SSH</h2>
-            <p>DialogWrapper 三步向导 · File → Open Remote SSH…</p>
+            <div>
+              <h2>Open Remote SSH</h2>
+              <p>DialogWrapper 三步 · File → Open Remote SSH… · 选 Host → 远程目录 → 本地镜像</p>
+            </div>
+            <div class="head-meta">
+              <span class="chip">现状</span>
+            </div>
           </div>
           <div class="dialog" id="wizard">
             <div class="dialog-title">
               <span>Open Remote SSH</span>
-              <span style="color:var(--text-dim);font-weight:400;font-size:12px">Esc to cancel</span>
+              <span class="esc">Esc to cancel</span>
             </div>
             <div class="dialog-body">
               <div class="step-list" id="stepList">
-                <div class="step current" data-step="0">1. Host</div>
-                <div class="step" data-step="1">2. Remote directory</div>
-                <div class="step" data-step="2">3. Local mirror</div>
+                <div class="step current" data-step="0">
+                  <span class="n">1</span>
+                  <span class="step-cap">Host<small>~/.ssh/config</small></span>
+                </div>
+                <div class="step" data-step="1">
+                  <span class="n">2</span>
+                  <span class="step-cap">Remote directory<small>ssh ls</small></span>
+                </div>
+                <div class="step" data-step="2">
+                  <span class="n">3</span>
+                  <span class="step-cap">Local mirror<small>mutagen session</small></span>
+                </div>
               </div>
               <div style="flex:1;display:flex;flex-direction:column;min-width:0">
-                <!-- Step 0 -->
                 <div class="card active" data-card="0">
-                  <div style="color:var(--text-dim);margin-bottom:4px">Hosts from ~/.ssh/config:</div>
+                  <div class="card-lead">从 <code>~/.ssh/config</code> 读取 Host；双击或 Next 连接。</div>
                   <div class="listbox" id="hostList" tabindex="0"></div>
                 </div>
-                <!-- Step 1 -->
                 <div class="card" data-card="1">
                   <input class="input" id="remotePath" spellcheck="false" placeholder="/home/android/…" />
                   <div class="listbox" id="dirList" tabindex="0" title="双击目录进入"></div>
-                  <div class="hint">双击目录进入；选中 <code>..</code> 返回上级；路径框回车直接跳转。</div>
+                  <div class="hint">双击目录进入；选中 <code>..</code> 返回上级；路径框回车直接跳转。示例目标：<code>/home/android/android-demo</code></div>
                 </div>
-                <!-- Step 2 -->
                 <div class="card" data-card="2">
                   <div class="field">
-                    <label>Local directory:</label>
+                    <label>Local directory</label>
                     <div class="inline-row">
                       <input class="input" id="localPath" spellcheck="false" />
                       <button type="button" class="btn browse-btn" id="browseLocal">Browse…</button>
                     </div>
                   </div>
                   <div class="field">
-                    <label>Sync mode:</label>
+                    <label>Sync mode</label>
                     <select class="select" id="syncMode">
                       <option value="TWO_WAY">双向 safe（Two-way safe）</option>
                       <option value="REMOTE_TO_LOCAL">远程→本地（Remote → Local replica）</option>
@@ -70,9 +113,9 @@
                   </div>
                   <label class="checkbox">
                     <input type="checkbox" id="remoteGit" checked />
-                    <span>Use remote git (wrapper + read-only .git mirror)</span>
+                    <span>Use remote git（wrapper + 只读 .git mirror）</span>
                   </label>
-                  <div class="hint">Windows 上远程 Git 不可用（会禁用此项）。完成后创建 Mutagen 会话并打开本地目录；随后会做一次初始 flush（见进度示意）。</div>
+                  <div class="hint">Windows 上远程 Git 不可用（会禁用）。完成后创建 Mutagen 会话并打开本地目录；随后初始 flush（下方示意）。</div>
                 </div>
               </div>
             </div>
@@ -88,11 +131,11 @@
           <div id="postWizardFlush" class="post-flush" style="display:none">
             <div class="vision-banner soft">
               <span class="vision-tag">示意</span>
-              向导完成后的初始 flush 进度（真实插件会在后台完成；此处仅示意）。
+              向导完成后的初始 flush 进度（真实插件在后台完成；此处仅示意）。
             </div>
-            <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:8px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:10px">
               <span id="flushLabel">Flushing mutagen session…</span>
-              <span id="flushPct">0%</span>
+              <span id="flushPct" style="font-variant-numeric:tabular-nums">0%</span>
             </div>
             <div class="progress"><i id="flushBar"></i></div>
           </div>
@@ -101,43 +144,75 @@
         <!-- ========== SYNC TOOL WINDOW ========== -->
         <section class="panel" id="panel-sync">
           <div class="section-head">
-            <h2>Remote Sync</h2>
-            <p>底部工具窗 · 可见时每 4s 刷新 · label rsp=1</p>
+            <div>
+              <h2>Remote Sync</h2>
+              <p>底部工具窗 · 可见时约每 4s 刷新 · mutagen label <code>rsp=1</code></p>
+            </div>
+            <div class="head-meta">
+              <span class="chip">现状</span>
+            </div>
           </div>
           <div class="toolwin">
-            <div class="toolwin-tab">Remote Sync <span class="x">×</span></div>
+            <div class="toolwin-tabs">
+              <div class="toolwin-tab"><span class="live"></span> Remote Sync <span class="x">×</span></div>
+            </div>
             <div class="toolbar" id="syncToolbar">
               <button type="button" class="btn" data-act="refresh" title="Refresh">⟳ Refresh</button>
               <span class="sep"></span>
-              <button type="button" class="btn" data-act="flush" title="Sync now (flush)">▶ Sync now (flush)</button>
+              <button type="button" class="btn" data-act="flush" title="Sync now (flush)">▶ Sync now</button>
               <button type="button" class="btn" data-act="pause" title="Pause">⏸ Pause</button>
-              <button type="button" class="btn" data-act="resume" title="Resume">⏵ Resume</button>
+              <button type="button" class="btn" data-act="resume" title="Resume — 短 tooltip（与插件一致）">⏵ Resume</button>
               <button type="button" class="btn" data-act="terminate" title="Terminate">✕ Terminate</button>
+              <span class="hint-inline">选中行后操作</span>
             </div>
-            <div style="overflow:auto;max-height:340px">
+            <div class="table-wrap">
               <table class="grid" id="sessionTable">
                 <thead>
                   <tr>
-                    <th>Name</th><th>Status</th><th>Paused</th><th>Conflicts</th>
-                    <th>Alpha</th><th>Beta</th><th>Error</th>
+                    <th>Name</th>
+                    <th>Status</th>
+                    <th>Paused</th>
+                    <th>Conflicts</th>
+                    <th>Alpha (local)</th>
+                    <th>Beta (remote)</th>
+                    <th>Error</th>
                   </tr>
                 </thead>
                 <tbody></tbody>
               </table>
             </div>
           </div>
-          <p class="hint">选中一行后可 Pause / Resume / Terminate。Terminate 会弹出与真实插件一致的确认文案（保留本地文件、同时终止 git mirror）。</p>
-          <div class="card-block" style="margin-top:12px">
-            <h3>Startup · Resume / Recreate</h3>
-            <p>项目打开时（StartupActivity）：会话 <strong>missing</strong> → 提示 <em>Recreate</em>；已存在但 <strong>Paused</strong> → 提示 <em>Resume</em>。工具栏 Resume / 行内操作对应同一路径。</p>
+          <div class="legend">
+            <span><span class="pill watching">Watching</span> 双向监听</span>
+            <span><span class="pill syncing">Scanning</span> 同步中</span>
+            <span><span class="pill paused">Paused</span> 已暂停</span>
+            <span><span class="pill missing">missing</span> 需 Recreate</span>
           </div>
+          <div class="callout info">
+            <div class="callout-ico">↻</div>
+            <div>
+              <h3>Startup · Resume / Recreate</h3>
+              <p>项目打开时（StartupActivity）：会话 <strong>missing</strong> → 提示 <em>Recreate</em>；已存在但 <strong>Paused</strong> → 提示 <em>Resume</em>。工具栏 Resume / 行内操作走同一路径。</p>
+              <div class="flow">
+                <span class="flow-chip">missing → Recreate</span>
+                <span class="flow-chip">Paused → Resume</span>
+                <span class="flow-chip">Watching → 正常</span>
+              </div>
+            </div>
+          </div>
+          <p class="hint">Terminate 确认文案与真实插件一致：保留本地文件，同时终止 git mirror（若有）。</p>
         </section>
 
         <!-- ========== TOOLS MENU ========== -->
         <section class="panel" id="panel-tools">
           <div class="section-head">
-            <h2>Tools → Remote SSH</h2>
-            <p>仅映射项目中可见 · 点菜单项打开对应流程</p>
+            <div>
+              <h2>Tools → Remote SSH</h2>
+              <p>仅映射项目中可见 · 点菜单项打开对应流程</p>
+            </div>
+            <div class="head-meta">
+              <span class="chip">现状 + 愿景标注</span>
+            </div>
           </div>
           <div class="menu-bar" id="menuBar">
             <div class="m">File</div>
@@ -148,38 +223,56 @@
               <div class="dropdown">
                 <div class="mi dim">…</div>
                 <div class="sep"></div>
+                <div class="group-label">Remote SSH</div>
                 <div class="mi" data-tool="gradle">Run Remote Gradle Task…</div>
                 <div class="mi" data-tool="adb" id="adbMenuItem">Start ADB Reverse Forward (5037 → pixel-lab)</div>
                 <div class="mi" data-tool="install">Install Pulled APK via Local adb…</div>
                 <div class="sep"></div>
                 <div class="mi" data-tool="git">Use Remote Git for This Project</div>
                 <div class="mi" data-tool="term">Open Remote Terminal</div>
+                <div class="sep"></div>
+                <div class="mi" data-tool="aboutJump">About Remote SSH Plus…</div>
               </div>
             </div>
             <div class="m">Help</div>
           </div>
           <div class="demo-area" id="toolDemo">
-            <p class="hint" style="margin:0">从上方 <strong>Tools</strong> 菜单选择一项开始演示。</p>
+            <div class="demo-empty">
+              <div class="big">☰</div>
+              <h3>从上方 Tools 菜单选择一项</h3>
+              <p>Gradle 远程构建（含 flush / 暂停警告）、ADB 反向转发安全确认、安装已回拉 APK、Remote Git / Terminal stubs。</p>
+            </div>
           </div>
         </section>
 
-        <!-- ========== ABOUT / 说明 (read-only) ========== -->
+        <!-- ========== ABOUT / 说明 ========== -->
         <section class="panel" id="panel-about">
           <div class="section-head">
-            <h2>About / 说明</h2>
-            <p>只读说明 · 非 SettingsConfigurable · 不可在此切换内置行为</p>
+            <div>
+              <h2>About / 说明</h2>
+              <p>只读说明 · 非 SettingsConfigurable · 内置行为不可在此开关</p>
+            </div>
+            <div class="head-meta">
+              <span class="chip">只读</span>
+            </div>
           </div>
           <div class="strip">
             <div class="card-block">
-              <h3>SSH ControlMaster <span class="tag builtin">built-in</span></h3>
+              <div class="card-top">
+                <h3>SSH ControlMaster</h3>
+                <span class="tag builtin">built-in</span>
+              </div>
               <p>系统 <code>ssh</code> 使用 <code>ControlMaster=auto</code> +
                 <code>ControlPath=~/.remote-ssh-plus/cm/%C</code> +
-                <code>ControlPersist=10m</code> 复用连接。ADB 反向转发单独使用
-                <code>ControlMaster=no</code>（独立连接，避免与其它会话互相拖垮）。</p>
-              <p class="hint">此为插件内置行为，用户不可在设置页开关。</p>
+                <code>ControlPersist=10m</code> 复用连接。</p>
+              <p>ADB 反向转发单独使用 <code>ControlMaster=no</code>（独立连接，避免与其它会话互相拖垮）。</p>
+              <p class="hint" style="margin:0">插件内置行为，用户不可在设置页开关。</p>
             </div>
             <div class="card-block">
-              <h3>Mutagen ignore <span class="tag builtin">built-in</span></h3>
+              <div class="card-top">
+                <h3>Mutagen ignore</h3>
+                <span class="tag builtin">built-in</span>
+              </div>
               <p>创建会话时固定忽略（并 <code>--ignore-vcs</code>），<strong>不可编辑 / 不可在 UI 开关</strong>：</p>
               <ul>
                 <li><code>build/</code></li>
@@ -187,29 +280,45 @@
                 <li><code>local.properties</code></li>
                 <li><code>.idea/workspace.xml</code></li>
               </ul>
-              <p class="hint">远程构建产物在 <code>build/</code> 内，不同步到本地镜像；成功后由插件阻塞式 <code>ssh cat</code> 回拉到本地同一相对路径。签名材料等同理被忽略，勿理解为可勾选的「忽略 build/」设置项。</p>
+              <p class="hint" style="margin:0">勿理解为可勾选的「忽略 build/」设置项；签名材料等同理被忽略。</p>
             </div>
             <div class="card-block">
-              <h3>Roadmap <span class="tag">pending</span></h3>
-              <p><code>adb install --incremental</code>：计划在本地安装路径加入按块流式增量安装（需 v4 签名等条件）；
-                与现有 <code>--fastdeploy</code> → 全量 <code>-r</code> 回退链并存或择优。<strong>待实现 · 非当前功能。</strong></p>
+              <div class="card-top">
+                <h3>APK 回拉 / 安装</h3>
+                <span class="tag readonly">现状</span>
+              </div>
+              <p>远程 <code>build/</code> 不同步；成功后由插件<strong>阻塞式</strong> <code>ssh cat</code> 回拉到本地同一相对路径。无 Backgroundable Cancel。</p>
+              <p>本地安装：优先 <code>--fastdeploy</code>（device-side），失败则回退全量 <code>adb install -r</code>。</p>
             </div>
             <div class="card-block">
-              <h3>当前映射（示例 · 全站一致）</h3>
-              <p><code>/home/shuang/rsp-mirrors/pixel-lab_android-demo</code>
-                ↔ <code>pixel-lab:/home/android/android-demo</code>
-                · mode: 双向 safe · remoteGit: on</p>
-              <p class="hint">Host alias <code>pixel-lab</code>，远程用户 <code>android</code>，远程路径 <code>/home/android/android-demo</code>。</p>
+              <div class="card-top">
+                <h3>Roadmap</h3>
+                <span class="tag">pending</span>
+              </div>
+              <p><code>adb install --incremental</code>：计划加入按块流式增量安装（需 v4 签名等条件）；
+                与现有 fastdeploy → <code>-r</code> 回退链并存或择优。</p>
+              <p><strong>待实现 · 非当前功能。</strong> 进度条 + Cancel 同为愿景示意。</p>
+            </div>
+            <div class="card-block span-2">
+              <div class="card-top">
+                <h3>当前映射（示例 · 全站一致）</h3>
+                <span class="tag readonly">sample</span>
+              </div>
+              <div class="mapping-box">
+                <div><span class="dim">local</span>&nbsp;&nbsp;/home/shuang/rsp-mirrors/pixel-lab_android-demo</div>
+                <div><span class="dim">remote</span>&nbsp;pixel-lab:/home/android/android-demo</div>
+                <div><span class="dim">mode</span>&nbsp;&nbsp;&nbsp;双向 safe · remoteGit: on</div>
+              </div>
+              <p class="hint" style="margin-top:8px;margin-bottom:0">Host alias <code>pixel-lab</code>，远程用户 <code>android</code>，路径 <code>/home/android/android-demo</code>。About 仅在已映射项目中可见（与插件 PR 对齐）。</p>
             </div>
           </div>
         </section>
 
       </div>
     </div>
-    <p class="footer-note">Design-only prototype · does not modify the remote-ssh-plus repository</p>
+    <p class="footer-note">Design-only prototype v2 · does not modify the remote-ssh-plus repository · GitHub Pages</p>
   </div>
 
-  <!-- Modals -->
   <div class="overlay" id="overlay" role="dialog" aria-modal="true">
     <div class="modal" id="modal">
       <div class="mtitle" id="modalTitle"></div>

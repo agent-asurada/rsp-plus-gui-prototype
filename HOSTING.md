@@ -1,17 +1,22 @@
-# Remote SSH Plus — GUI prototype hosting
+# Remote SSH Plus — GUI prototype hosting (v2)
 
 ## Files
 - `/workspace/rsp-prototype/index.html`
 - `/workspace/rsp-prototype/styles.css`
 - `/workspace/rsp-prototype/app.js`
-- Screenshots: `/workspace/rsp-prototype/screenshots/01-wizard.png` … `04-status.png`
+- Screenshots: `/workspace/rsp-prototype/screenshots/01-wizard.png` … `04-about.png`
 
-## Public URL (durable)
-- GitHub Pages: https://agent-asurada.github.io/rsp-plus-gui-prototype/
-- Repo: https://github.com/agent-asurada/rsp-plus-gui-prototype
-- Deep links: `#wizard` `#sync` `#tools` `#status`
+## Live
+- https://agent-asurada.github.io/rsp-plus-gui-prototype/
 
-## Local preview (optional)
-- `npx serve -l 8765` in this directory (kept running for local screenshots)
+## Local
+- `npx serve -l 8765` in this directory (for screenshots)
 
-Design-only; does not touch `/workspace/remote-ssh-plus` or its GitHub remote.
+## Design-only
+Does **not** modify `agent-asurada/remote-ssh-plus`. Prototype repo only: `agent-asurada/rsp-plus-gui-prototype`.
+
+## Screenshot modes
+- `?shot=gradle#tools` — Gradle + vision APK progress
+- `?shot=install#tools` — Install chooser stub
+- `?shot=wizard-flush#wizard` — post-wizard flush sketch
+- `#about` / `#sync` / `#wizard` / `#tools` — panel deep links

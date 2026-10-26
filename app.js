@@ -1,4 +1,4 @@
-/* Remote SSH Plus — interactive prototype */
+/* Remote SSH Plus — interactive prototype v2 */
 (function () {
   "use strict";
 
@@ -265,7 +265,8 @@
     HOSTS.forEach((h) => {
       const div = document.createElement("div");
       div.className = "item" + (h === selectedHost ? " selected" : "");
-      div.innerHTML = hostLabel(h);
+      const meta = (h.user ? h.user + "@" : "") + (h.hostName || "") + (h.port ? ":" + h.port : "");
+      div.innerHTML = '<span class="ico">◉</span><span>' + h.alias + '</span><span class="meta">' + meta + "</span>";
       div.addEventListener("click", () => {
         selectedHost = h;
         renderHosts();
@@ -289,7 +290,9 @@
     entriesFor(cwd).forEach((e) => {
       const div = document.createElement("div");
       div.className = "item " + (e.isDir ? "dir" : "file");
-      div.textContent = e.isDir ? e.name + "/" : e.name;
+      const ico = e.isDir ? "▸" : "·";
+      const label = e.isDir ? e.name + "/" : e.name;
+      div.innerHTML = '<span class="ico">' + ico + "</span><span>" + label + "</span>";
       div.addEventListener("click", () => {
         $$(".item", box).forEach((x) => x.classList.remove("selected"));
         div.classList.add("selected");
@@ -426,12 +429,12 @@
       if (i === selectedSession) tr.classList.add("selected");
       const pillStatus = s.paused && !/missing/i.test(s.status) ? "Paused" : s.status;
       tr.innerHTML = `
-        <td>${s.name}</td>
+        <td><strong style="font-weight:500;color:var(--text-bright)">${s.name}</strong></td>
         <td>${statusPill(pillStatus, s.paused && !/missing/i.test(s.status))}</td>
         <td>${s.paused}</td>
         <td>${s.conflicts}</td>
-        <td title="${s.alpha}">${shorten(s.alpha)}</td>
-        <td title="${s.beta}">${shorten(s.beta)}</td>
+        <td class="path-cell" title="${s.alpha}">${shorten(s.alpha)}</td>
+        <td class="path-cell" title="${s.beta}">${shorten(s.beta)}</td>
         <td style="color:var(--err)">${s.lastError || ""}</td>`;
       tr.addEventListener("click", () => {
         selectedSession = i;
@@ -555,13 +558,18 @@
 
   async function runTool(id) {
     const area = $("#toolDemo");
+    if (id === "aboutJump") {
+      showPanel("about");
+      return;
+    }
     if (id === "gradle") return demoGradle(area);
     if (id === "adb") return demoAdb(area);
     if (id === "install") return demoInstall(area);
     if (id === "git") {
       area.innerHTML = `
+        <div class="vision-banner soft" style="margin-bottom:12px"><span class="vision-tag">Stub</span>面板占位 · 行为对齐真实插件路径</div>
         <h3 style="margin:0 0 8px;color:var(--text-bright)">Use Remote Git for This Project</h3>
-        <p>Stub panel — 真实插件会为映射生成 git wrapper（<code>~/.remote-ssh-plus/git/&lt;session&gt;/git</code>），
+        <p style="margin:0 0 12px;line-height:1.55">真实插件会为映射生成 git wrapper（<code>~/.remote-ssh-plus/git/&lt;session&gt;/git</code>），
           并设置项目级 Git 可执行文件；另建只读 <code>.git</code> mirror 会话。</p>
         <button type="button" class="btn primary" id="gitStubOk">Enable Remote Git</button>
         <p class="hint">Windows 不支持（cmd.exe 无法安全转发参数）。</p>`;
@@ -570,10 +578,11 @@
     }
     if (id === "term") {
       area.innerHTML = `
+        <div class="vision-banner soft" style="margin-bottom:12px"><span class="vision-tag">Stub</span>需 IDE Terminal 插件</div>
         <h3 style="margin:0 0 8px;color:var(--text-bright)">Open Remote Terminal</h3>
         <div class="console" id="termStub"><span class="info">$ ssh -t pixel-lab 'cd /home/android/android-demo &amp;&amp; exec $SHELL -l'</span>
 android@pixel-lab:~/android-demo$ ▌</div>
-        <p class="hint">Stub — 需 Terminal 插件；在 IDE 终端里开本地 shell 并 exec ssh。</p>`;
+        <p class="hint">在 IDE 终端里开本地 shell 并 exec ssh · 工作目录对齐映射远程路径。</p>`;
       return;
     }
   }
