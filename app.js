@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  // ---------- Sample data ----------
+  // ---------- Sample data (canonical mapping: pixel-lab:/home/android/android-demo) ----------
   const HOSTS = [
     { alias: "dev-box", hostName: "10.0.0.42", user: "dev", port: null },
     { alias: "pixel-lab", hostName: "pixel-lab.lan", user: "android", port: "22" },
@@ -227,9 +227,15 @@
     return `<span class="pill ${cls}">${text}</span>`;
   }
 
+  function primarySession() {
+    return sessions.find((s) => s.mapping && s.mapping.host === "pixel-lab") || sessions[0];
+  }
+
   // ---------- Nav ----------
   function showPanel(name) {
-    const allowed = ["wizard", "sync", "tools", "status"];
+    const allowed = ["wizard", "sync", "tools", "about"];
+    // legacy hash
+    if (name === "status") name = "about";
     if (!allowed.includes(name)) name = "wizard";
     $$("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.panel === name));
     $$(".panel").forEach((p) => p.classList.toggle("active", p.id === "panel-" + name));
@@ -256,7 +262,7 @@
       setWizStatus("No Host entries found in ~/.ssh/config", "err");
       return;
     }
-    HOSTS.forEach((h, i) => {
+    HOSTS.forEach((h) => {
       const div = document.createElement("div");
       div.className = "item" + (h === selectedHost ? " selected" : "");
       div.innerHTML = hostLabel(h);
@@ -272,7 +278,6 @@
 
   function entriesFor(path) {
     if (REMOTE_TREE[path]) return REMOTE_TREE[path];
-    // synthesize parent listing
     if (path === "/") return [{ name: "home", isDir: true }, { name: "tmp", isDir: true }];
     return [{ name: "..", isDir: true }];
   }
@@ -304,9 +309,7 @@
     $("#wizNext").disabled = true;
     await sleep(350);
     cwd = dir === "/" ? "/" : dir.replace(/\/+$/, "") || "/";
-    // if unknown path under a known home, still show something
     if (!REMOTE_TREE[cwd] && !cwd.endsWith("..")) {
-      // keep listing if we have a parent with that child as dir — else empty with ..
       if (!REMOTE_TREE[cwd]) {
         REMOTE_TREE[cwd] = [{ name: "..", isDir: true }];
       }
@@ -326,6 +329,24 @@
     $$(".card").forEach((c) => c.classList.toggle("active", Number(c.dataset.card) === i));
     $("#wizPrev").disabled = i === 0 || wizBusy;
     $("#wizNext").textContent = i === 2 ? "OK" : "Next";
+  }
+
+  async function showPostWizardFlush(localPath, host, remotePath) {
+    const box = $("#postWizardFlush");
+    const bar = $("#flushBar");
+    const pct = $("#flushPct");
+    const label = $("#flushLabel");
+    box.style.display = "block";
+    bar.style.width = "0%";
+    pct.textContent = "0%";
+    label.textContent = "Creating mutagen session · flush " + host + ":" + remotePath + " …";
+    for (let p = 0; p <= 100; p += 10) {
+      bar.style.width = p + "%";
+      pct.textContent = p + "%";
+      await sleep(70);
+    }
+    label.textContent = "Flush done · opened " + localPath;
+    toast("映射已创建 · 初始 flush 完成");
   }
 
   async function wizNext() {
@@ -366,11 +387,14 @@
     }
     wizBusy = true;
     setWizStatus("Creating Mutagen session & opening project…", "busy");
-    await sleep(700);
+    await sleep(500);
     wizBusy = false;
     const mode = $("#syncMode").selectedOptions[0].text;
-    setWizStatus("Opened " + $("#localPath").value + " · " + mode, " ");
-    toast("映射已创建 · Mutagen session started");
+    const local = $("#localPath").value.trim();
+    setWizStatus("Opened " + local + " · " + mode, " ");
+    await showPostWizardFlush(local, selectedHost.alias, cwd);
+    // keep user on wizard briefly to see flush, then sync
+    await sleep(400);
     showPanel("sync");
   }
 
@@ -384,6 +408,7 @@
   $("#wizCancel").addEventListener("click", () => {
     showWizStep(0);
     setWizStatus("Cancelled");
+    $("#postWizardFlush").style.display = "none";
   });
   $("#remotePath").addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !wizBusy) browse($("#remotePath").value.trim() || "/");
@@ -446,19 +471,13 @@
     const s = sessions[selectedSession];
     if (act === "refresh") {
       toast("Refreshed sessions");
-      // flip watching label slightly
-      sessions.forEach((x) => {
-        if (!x.paused && /Watch|Scan/i.test(x.status) && !/missing/i.test(x.status)) {
-          x.status = x.status === "Watching" ? "Watching" : "Watching";
-        }
-      });
       renderSessions();
       return;
     }
     if (!s) return;
     if (act === "flush") {
       toast("Flush: " + s.name);
-      s.status = "Watching";
+      if (!/missing/i.test(s.status)) s.status = "Watching";
       renderSessions();
       return;
     }
@@ -469,9 +488,13 @@
       return;
     }
     if (act === "resume") {
+      if (/missing/i.test(s.status)) {
+        toast("Session missing — use Recreate (startup hint)", true);
+        return;
+      }
       s.paused = false;
       s.status = "Watching";
-      toast("Resumed " + s.name);
+      toast("Resumed " + s.name + " (startup would offer Resume when paused)");
       renderSessions();
       return;
     }
@@ -556,9 +579,34 @@ android@pixel-lab:~/android-demo$ ▌</div>
   }
 
   async function demoGradle(area) {
+    const sess = primarySession();
+    const paused = !!(sess && sess.paused && !/missing/i.test(sess.status));
+
+    if (paused) {
+      const go = await showModal({
+        title: "Mutagen session paused",
+        body:
+          "Session " +
+          (sess ? sess.name : "") +
+          " is paused. Remote Gradle will use whatever code is already on the remote host — local edits may not have been flushed.\n\nContinue anyway, or cancel and Resume first?",
+        warn: true,
+        buttons: [
+          { id: "cancel", label: "Cancel" },
+          { id: "continue", label: "Continue with remote code", primary: true, warn: true },
+        ],
+      });
+      if (go !== "continue") {
+        area.innerHTML = `<p class="hint">Cancelled — Resume the mutagen session, then retry Remote Gradle.</p>`;
+        return;
+      }
+    }
+
     const ans = await showModal({
       title: "Remote Gradle",
-      body: "Gradle tasks/arguments to run on pixel-lab:",
+      body:
+        "Gradle tasks/arguments to run on pixel-lab:\n\n" +
+        "Before build, the plugin flushes the mutagen session so remote sees latest local sources" +
+        (paused ? " (session was paused — flush may be skipped / remote may be stale)." : "."),
       input: { value: ":app:assembleDebug" },
       buttons: [
         { id: "cancel", label: "Cancel" },
@@ -569,18 +617,23 @@ android@pixel-lab:~/android-demo$ ▌</div>
     const taskName = ((ans && ans.value) || ":app:assembleDebug").trim() || ":app:assembleDebug";
 
     area.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;margin:0 0 8px">
+      <div style="display:flex;align-items:center;gap:8px;margin:0 0 8px;flex-wrap:wrap">
         <strong style="color:var(--text-bright)">Remote: <span id="runTitle"></span></strong>
         <button type="button" class="btn" id="stopGradle">Stop</button>
         <button type="button" class="btn" id="runGradle">Rerun</button>
       </div>
+      <p class="hint" id="gradleFlushNote" style="margin:0 0 8px"></p>
       <div class="console" id="gradleConsole"></div>
       <div id="apkProgress" style="display:none;margin-top:10px">
-        <div style="display:flex;justify-content:space-between;font-size:12px">
-          <span>Pulling APK… <span id="apkName">app-debug.apk</span></span>
-          <button type="button" class="btn" id="cancelPull">Cancel</button>
+        <div class="vision-banner">
+          <span class="vision-tag">愿景 / 未实现</span>
+          进度条 + Cancel 仅为 UI 示意。当前真实实现：阻塞式完整 <code>ssh cat</code> 回拉，成功后发通知；无 Backgroundable 可取消拉取。
         </div>
-        <div class="progress"><i id="apkBar"></i></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:8px;opacity:.85">
+          <span>Pulling APK… <span id="apkName">app-debug.apk</span> <em style="color:var(--text-dim)">(sketch)</em></span>
+          <button type="button" class="btn" id="cancelPull" title="愿景：当前不可取消">Cancel</button>
+        </div>
+        <div class="progress vision-progress"><i id="apkBar"></i></div>
       </div>
       <div class="notif" id="apkNotif">
         <h4>Remote SSH Plus</h4>
@@ -589,6 +642,11 @@ android@pixel-lab:~/android-demo$ ▌</div>
       </div>`;
 
     const consoleEl = $("#gradleConsole");
+    const flushNote = $("#gradleFlushNote");
+    flushNote.innerHTML = paused
+      ? '<span class="pill paused">Paused</span> 已跳过 / 弱化 flush — 使用远程现有代码。'
+      : "Build 前 flush mutagen · <code>pixel-lab:/home/android/android-demo</code>";
+
     let cancelled = false;
     let running = false;
 
@@ -597,9 +655,9 @@ android@pixel-lab:~/android-demo$ ▌</div>
         if (cancelled) break;
         const span = document.createElement("div");
         if (/BUILD SUCCESSFUL/.test(line)) span.className = "ok";
-        else if (/WARNING|warn/i.test(line)) span.className = "warn";
+        else if (/WARNING|warn|paused|stale/i.test(line)) span.className = "warn";
         else if (/error|FAILED/i.test(line)) span.className = "err";
-        else if (/^>|> Task|Starting/.test(line)) span.className = "info";
+        else if (/^>|> Task|Starting|Flush/i.test(line)) span.className = "info";
         span.textContent = line;
         consoleEl.appendChild(span);
         consoleEl.scrollTop = consoleEl.scrollHeight;
@@ -618,9 +676,17 @@ android@pixel-lab:~/android-demo$ ▌</div>
       $("#apkNotif").classList.remove("show");
       $("#apkProgress").style.display = "none";
       consoleEl.innerHTML = "";
+      const preamble = paused
+        ? [
+            "[warn] mutagen session paused — skipping flush; remote may be stale",
+            "$ ssh -tt pixel-lab \"sh -lc 'cd /home/android/android-demo && ./gradlew " + tasks + "'\"",
+          ]
+        : [
+            "Flush mutagen session pixel-lab_android-demo_a1b2 … OK",
+            "$ ssh -tt pixel-lab \"sh -lc 'cd /home/android/android-demo && ./gradlew " + tasks + "'\"",
+          ];
       await streamLines(
-        [
-          "$ ssh -tt pixel-lab \"sh -lc 'cd /home/android/android-demo && ./gradlew " + tasks + "'\"",
+        preamble.concat([
           "Starting a Gradle Daemon…",
           "> Task :app:preBuild UP-TO-DATE",
           "> Task :app:mergeDebugResources",
@@ -631,22 +697,23 @@ android@pixel-lab:~/android-demo$ ▌</div>
           "",
           "BUILD SUCCESSFUL in 12s",
           "4 actionable tasks: 3 executed, 1 up-to-date",
-        ],
-        280
+        ]),
+        260
       );
       if (cancelled) {
         running = false;
         $("#stopGradle").disabled = true;
         return;
       }
-      // APK pull
+      // APK pull — vision sketch only
       $("#apkProgress").style.display = "block";
       $("#apkName").textContent = "app/build/outputs/apk/debug/app-debug.apk";
       const bar = $("#apkBar");
       let pullCancel = false;
       $("#cancelPull").onclick = () => {
+        // Vision only — real plugin cannot cancel blocking ssh cat
+        toast("Cancel 为愿景示意；真实插件阻塞 ssh cat，不可取消", true);
         pullCancel = true;
-        toast("APK pull cancelled", true);
         $("#apkProgress").style.display = "none";
       };
       for (let p = 0; p <= 100; p += 8) {
@@ -661,13 +728,18 @@ android@pixel-lab:~/android-demo$ ▌</div>
       const local =
         "/home/shuang/rsp-mirrors/pixel-lab_android-demo/app/build/outputs/apk/debug/app-debug.apk";
       $("#apkNotifBody").innerHTML =
-        "Pulled 1 APK(s):<br><code>" + local + "</code>";
+        "Pulled 1 APK(s) via blocking <code>ssh cat</code> (no cancel):<br><code>" +
+        local +
+        "</code><br><span style='color:var(--text-dim);font-size:12px'>Install prefers <code>--fastdeploy</code>, then falls back to full <code>adb install -r</code>.</span>";
       $("#apkActions").innerHTML = `
-        <button type="button" class="btn primary" id="installFast">adb install app-debug.apk</button>
+        <button type="button" class="btn primary" id="installFast">Install (fastdeploy → -r)</button>
         <button type="button" class="btn" id="copyPath">Copy path</button>`;
       $("#apkNotif").classList.add("show");
-      $("#installFast").onclick = () =>
-        toast("Installed app-debug.apk (fastdeploy) — fallback: full -r if needed");
+      $("#installFast").onclick = async () => {
+        toast("Trying --fastdeploy…");
+        await sleep(400);
+        toast("Installed app-debug.apk — fastdeploy OK (fallback would be full -r)");
+      };
       $("#copyPath").onclick = () => toast("Copied: " + local);
     };
 
@@ -761,13 +833,20 @@ android@pixel-lab:~/android-demo$ ▌</div>
   async function demoInstall(area) {
     area.innerHTML = `
       <h3 style="margin:0 0 8px;color:var(--text-bright)">Install Pulled APK via Local adb…</h3>
-      <p class="hint">FileChooser stub — 选择本地镜像中的 APK。</p>
-      <div class="listbox" id="apkPicker" style="min-height:140px;max-width:560px"></div>
+      <div class="vision-banner soft">
+        <span class="vision-tag">Stub</span>
+        下方列表仅为原型占位。真实插件使用 IDE <strong>FileChooser</strong> 选择本地镜像中的 APK。
+      </div>
+      <div class="listbox" id="apkPicker" style="min-height:140px;max-width:560px;margin-top:10px"></div>
       <div style="margin-top:10px" class="inline-row">
         <button type="button" class="btn primary" id="doInstall" disabled>Install</button>
         <span class="hint" id="installMode"></span>
       </div>
-      <div class="console" id="installLog" style="height:140px;margin-top:10px;display:none"></div>`;
+      <div class="console" id="installLog" style="height:140px;margin-top:10px;display:none"></div>
+      <div class="notif" id="installNotif">
+        <h4>Remote SSH Plus</h4>
+        <div id="installNotifBody"></div>
+      </div>`;
 
     const apks = [
       "app/build/outputs/apk/debug/app-debug.apk",
@@ -778,7 +857,7 @@ android@pixel-lab:~/android-demo$ ▌</div>
     apks.forEach((p) => {
       const div = document.createElement("div");
       div.className = "item file";
-      div.textContent = p;
+      div.textContent = "/home/shuang/rsp-mirrors/pixel-lab_android-demo/" + p;
       div.onclick = () => {
         $$(".item", box).forEach((x) => x.classList.remove("selected"));
         div.classList.add("selected");
@@ -787,21 +866,26 @@ android@pixel-lab:~/android-demo$ ▌</div>
       };
       box.appendChild(div);
     });
-    // preselect first
     box.firstChild.click();
 
     $("#doInstall").onclick = async () => {
       const log = $("#installLog");
+      const notif = $("#installNotif");
+      notif.classList.remove("show");
       log.style.display = "block";
       log.innerHTML = "";
       $("#installMode").textContent = "trying --fastdeploy…";
       log.innerHTML += '<span class="info">$ adb install -r --fastdeploy ' + chosen + "</span>\n";
       await sleep(500);
-      // simulate fastdeploy success most of the time
       const useFast = !chosen.includes("release");
       if (useFast) {
         log.innerHTML += '<span class="ok">Performing Incremental Install\nSuccess</span>\n';
         $("#installMode").textContent = "mode: fastdeploy";
+        $("#installNotifBody").innerHTML =
+          "Installed <code>" +
+          chosen.split("/").pop() +
+          "</code> via <code>--fastdeploy</code>. (If fastdeploy fails, plugin falls back to full <code>adb install -r</code>.)";
+        notif.classList.add("show");
         toast("Installed " + chosen.split("/").pop() + " (fastdeploy)");
       } else {
         log.innerHTML += '<span class="warn">Failure [INSTALL_FAILED_FASTDEPLOY_…]\nfallback → adb install -r</span>\n';
@@ -810,7 +894,12 @@ android@pixel-lab:~/android-demo$ ▌</div>
         await sleep(400);
         log.innerHTML += '<span class="ok">Success</span>\n';
         $("#installMode").textContent = "mode: full (-r) — fastdeploy unavailable";
-        toast("Installed " + chosen.split("/").pop() + " (full)");
+        $("#installNotifBody").innerHTML =
+          "fastdeploy failed → fell back to full <code>adb install -r</code>. Installed <code>" +
+          chosen.split("/").pop() +
+          "</code>.";
+        notif.classList.add("show");
+        toast("Installed " + chosen.split("/").pop() + " (full -r fallback)");
       }
     };
   }

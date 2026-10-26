@@ -18,7 +18,7 @@
         <button type="button" data-panel="wizard" class="active">Open Remote SSH 向导</button>
         <button type="button" data-panel="sync">Remote Sync 工具窗</button>
         <button type="button" data-panel="tools">Tools → Remote SSH</button>
-        <button type="button" data-panel="status">Settings / Status</button>
+        <button type="button" data-panel="about">About / 说明</button>
       </nav>
       <div class="main">
 
@@ -47,7 +47,7 @@
                 </div>
                 <!-- Step 1 -->
                 <div class="card" data-card="1">
-                  <input class="input" id="remotePath" spellcheck="false" placeholder="/home/dev/…" />
+                  <input class="input" id="remotePath" spellcheck="false" placeholder="/home/android/…" />
                   <div class="listbox" id="dirList" tabindex="0" title="双击目录进入"></div>
                   <div class="hint">双击目录进入；选中 <code>..</code> 返回上级；路径框回车直接跳转。</div>
                 </div>
@@ -72,7 +72,7 @@
                     <input type="checkbox" id="remoteGit" checked />
                     <span>Use remote git (wrapper + read-only .git mirror)</span>
                   </label>
-                  <div class="hint">Windows 上远程 Git 不可用（会禁用此项）。完成后创建 Mutagen 会话并打开本地目录。</div>
+                  <div class="hint">Windows 上远程 Git 不可用（会禁用此项）。完成后创建 Mutagen 会话并打开本地目录；随后会做一次初始 flush（见进度示意）。</div>
                 </div>
               </div>
             </div>
@@ -84,6 +84,17 @@
               <button type="button" class="btn" id="wizCancel">Cancel</button>
               <button type="button" class="btn primary" id="wizNext">Next</button>
             </div>
+          </div>
+          <div id="postWizardFlush" class="post-flush" style="display:none">
+            <div class="vision-banner soft">
+              <span class="vision-tag">示意</span>
+              向导完成后的初始 flush 进度（真实插件会在后台完成；此处仅示意）。
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:8px">
+              <span id="flushLabel">Flushing mutagen session…</span>
+              <span id="flushPct">0%</span>
+            </div>
+            <div class="progress"><i id="flushBar"></i></div>
           </div>
         </section>
 
@@ -116,6 +127,10 @@
             </div>
           </div>
           <p class="hint">选中一行后可 Pause / Resume / Terminate。Terminate 会弹出与真实插件一致的确认文案（保留本地文件、同时终止 git mirror）。</p>
+          <div class="card-block" style="margin-top:12px">
+            <h3>Startup · Resume / Recreate</h3>
+            <p>项目打开时（StartupActivity）：会话 <strong>missing</strong> → 提示 <em>Recreate</em>；已存在但 <strong>Paused</strong> → 提示 <em>Resume</em>。工具栏 Resume / 行内操作对应同一路径。</p>
+          </div>
         </section>
 
         <!-- ========== TOOLS MENU ========== -->
@@ -148,41 +163,43 @@
           </div>
         </section>
 
-        <!-- ========== STATUS ========== -->
-        <section class="panel" id="panel-status">
+        <!-- ========== ABOUT / 说明 (read-only) ========== -->
+        <section class="panel" id="panel-about">
           <div class="section-head">
-            <h2>Settings / Status strip</h2>
-            <p>连接复用 · mutagen 忽略项 · 路线图</p>
+            <h2>About / 说明</h2>
+            <p>只读说明 · 非 SettingsConfigurable · 不可在此切换内置行为</p>
           </div>
           <div class="strip">
             <div class="card-block">
-              <h3>SSH ControlMaster</h3>
+              <h3>SSH ControlMaster <span class="tag builtin">built-in</span></h3>
               <p>系统 <code>ssh</code> 使用 <code>ControlMaster=auto</code> +
                 <code>ControlPath=~/.remote-ssh-plus/cm/%C</code> +
                 <code>ControlPersist=10m</code> 复用连接。ADB 反向转发单独使用
                 <code>ControlMaster=no</code>（独立连接，避免与其它会话互相拖垮）。</p>
+              <p class="hint">此为插件内置行为，用户不可在设置页开关。</p>
             </div>
             <div class="card-block">
-              <h3>Mutagen ignore</h3>
-              <p>默认忽略（并 <code>--ignore-vcs</code>）：</p>
+              <h3>Mutagen ignore <span class="tag builtin">built-in</span></h3>
+              <p>创建会话时固定忽略（并 <code>--ignore-vcs</code>），<strong>不可编辑 / 不可在 UI 开关</strong>：</p>
               <ul>
                 <li><code>build/</code></li>
                 <li><code>.gradle/</code></li>
                 <li><code>local.properties</code></li>
                 <li><code>.idea/workspace.xml</code></li>
               </ul>
-              <p class="hint">远程构建产生的 APK 在 build/ 内，不同步；成功后由插件 <code>ssh cat</code> 回拉到本地同一相对路径。</p>
+              <p class="hint">远程构建产物在 <code>build/</code> 内，不同步到本地镜像；成功后由插件阻塞式 <code>ssh cat</code> 回拉到本地同一相对路径。签名材料等同理被忽略，勿理解为可勾选的「忽略 build/」设置项。</p>
             </div>
             <div class="card-block">
               <h3>Roadmap <span class="tag">pending</span></h3>
-              <p><code>adb install --incremental</code>：在本地安装路径加入按块流式增量安装（需 v4 签名等条件）；
-                与现有 <code>--fastdeploy</code> → 全量 <code>-r</code> 回退链并存或择优。<strong>待实现。</strong></p>
+              <p><code>adb install --incremental</code>：计划在本地安装路径加入按块流式增量安装（需 v4 签名等条件）；
+                与现有 <code>--fastdeploy</code> → 全量 <code>-r</code> 回退链并存或择优。<strong>待实现 · 非当前功能。</strong></p>
             </div>
             <div class="card-block">
-              <h3>当前映射（示例）</h3>
-              <p><code>~/rsp-mirrors/pixel-lab_android-demo</code>
-                ↔ <code>pixel-lab:/home/dev/android-demo</code>
+              <h3>当前映射（示例 · 全站一致）</h3>
+              <p><code>/home/shuang/rsp-mirrors/pixel-lab_android-demo</code>
+                ↔ <code>pixel-lab:/home/android/android-demo</code>
                 · mode: 双向 safe · remoteGit: on</p>
+              <p class="hint">Host alias <code>pixel-lab</code>，远程用户 <code>android</code>，远程路径 <code>/home/android/android-demo</code>。</p>
             </div>
           </div>
         </section>
