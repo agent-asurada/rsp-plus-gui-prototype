@@ -580,7 +580,8 @@ android@pixel-lab:~/android-demo$ ▌</div>
 
   async function demoGradle(area) {
     const sess = primarySession();
-    const paused = !!(sess && sess.paused && !/missing/i.test(sess.status));
+    const shotGradle = new URLSearchParams(location.search).get("shot") === "gradle";
+    const paused = !shotGradle && !!(sess && sess.paused && !/missing/i.test(sess.status));
 
     if (paused) {
       const go = await showModal({
@@ -601,20 +602,23 @@ android@pixel-lab:~/android-demo$ ▌</div>
       }
     }
 
-    const ans = await showModal({
-      title: "Remote Gradle",
-      body:
-        "Gradle tasks/arguments to run on pixel-lab:\n\n" +
-        "Before build, the plugin flushes the mutagen session so remote sees latest local sources" +
-        (paused ? " (session was paused — flush may be skipped / remote may be stale)." : "."),
-      input: { value: ":app:assembleDebug" },
-      buttons: [
-        { id: "cancel", label: "Cancel" },
-        { id: "ok", label: "OK", primary: true },
-      ],
-    });
-    if (!ans || ans === "cancel" || ans.id === "cancel") return;
-    const taskName = ((ans && ans.value) || ":app:assembleDebug").trim() || ":app:assembleDebug";
+    let taskName = ":app:assembleDebug";
+    if (!shotGradle) {
+      const ans = await showModal({
+        title: "Remote Gradle",
+        body:
+          "Gradle tasks/arguments to run on pixel-lab:\n\n" +
+          "Before build, the plugin flushes the mutagen session so remote sees latest local sources" +
+          (paused ? " (session was paused — flush may be skipped / remote may be stale)." : "."),
+        input: { value: ":app:assembleDebug" },
+        buttons: [
+          { id: "cancel", label: "Cancel" },
+          { id: "ok", label: "OK", primary: true },
+        ],
+      });
+      if (!ans || ans === "cancel" || ans.id === "cancel") return;
+      taskName = ((ans && ans.value) || ":app:assembleDebug").trim() || ":app:assembleDebug";
+    }
 
     area.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;margin:0 0 8px;flex-wrap:wrap">
@@ -716,10 +720,20 @@ android@pixel-lab:~/android-demo$ ▌</div>
         pullCancel = true;
         $("#apkProgress").style.display = "none";
       };
+      const shotMode = new URLSearchParams(location.search).get("shot") === "gradle";
       for (let p = 0; p <= 100; p += 8) {
         if (pullCancel || cancelled) break;
         bar.style.width = p + "%";
+        if (shotMode && p >= 48) {
+          await sleep(8000); // hold for screenshot
+          break;
+        }
         await sleep(80);
+      }
+      if (shotMode) {
+        running = false;
+        $("#stopGradle").disabled = true;
+        return; // leave vision banner + progress visible
       }
       $("#stopGradle").disabled = true;
       running = false;
@@ -909,5 +923,28 @@ android@pixel-lab:~/android-demo$ ▌</div>
   showWizStep(0);
   renderSessions();
   updateAdbMenu();
-  showPanel(location.hash.replace(/^#/, "") || "wizard");
+  const params = new URLSearchParams(location.search);
+  const shot = params.get("shot");
+  showPanel(location.hash.replace(/^#/, "") || (shot === "about" ? "about" : "wizard"));
+  if (shot === "gradle") {
+    showPanel("tools");
+    // Force non-paused primary so we skip pause modal for clean shot
+    const ps = primarySession();
+    if (ps) { ps.paused = false; ps.status = "Watching"; }
+    setTimeout(() => runTool("gradle"), 200);
+  } else if (shot === "install") {
+    showPanel("tools");
+    setTimeout(() => runTool("install"), 200);
+  } else if (shot === "wizard-flush") {
+    showPanel("wizard");
+    showWizStep(2);
+    $("#localPath").value = "/home/shuang/rsp-mirrors/pixel-lab_android-demo";
+    selectedHost = HOSTS[1];
+    cwd = "/home/android/android-demo";
+    setTimeout(() => showPostWizardFlush(
+      "/home/shuang/rsp-mirrors/pixel-lab_android-demo",
+      "pixel-lab",
+      "/home/android/android-demo"
+    ), 100);
+  }
 })();
