@@ -228,14 +228,19 @@
   }
 
   // ---------- Nav ----------
+  function showPanel(name) {
+    const allowed = ["wizard", "sync", "tools", "status"];
+    if (!allowed.includes(name)) name = "wizard";
+    $$("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.panel === name));
+    $$(".panel").forEach((p) => p.classList.toggle("active", p.id === "panel-" + name));
+    if (location.hash.replace(/^#/, "") !== name) {
+      history.replaceState(null, "", "#" + name);
+    }
+  }
   $$("#nav button").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      $$("#nav button").forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-      $$(".panel").forEach((p) => p.classList.remove("active"));
-      $("#panel-" + btn.dataset.panel).classList.add("active");
-    });
+    btn.addEventListener("click", () => showPanel(btn.dataset.panel));
   });
+  window.addEventListener("hashchange", () => showPanel(location.hash.replace(/^#/, "") || "wizard"));
 
   // ---------- Wizard ----------
   function setWizStatus(msg, kind) {
@@ -366,9 +371,7 @@
     const mode = $("#syncMode").selectedOptions[0].text;
     setWizStatus("Opened " + $("#localPath").value + " · " + mode, " ");
     toast("映射已创建 · Mutagen session started");
-    // jump to sync panel
-    $$("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.panel === "sync"));
-    $$(".panel").forEach((p) => p.classList.toggle("active", p.id === "panel-sync"));
+    showPanel("sync");
   }
 
   $("#wizPrev").addEventListener("click", () => {
@@ -817,4 +820,5 @@ android@pixel-lab:~/android-demo$ ▌</div>
   showWizStep(0);
   renderSessions();
   updateAdbMenu();
+  showPanel(location.hash.replace(/^#/, "") || "wizard");
 })();
